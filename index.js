@@ -11,8 +11,11 @@ var hash = require('./lib/hash');
 // file loaders
 var loaders = require('./lib/loaders');
 
-// synchronously Fingerprint the given path
-function Fingerprint (opt) {
+// file manipulators
+var manglers = require('./lib/manglers');
+
+// synchronously Asset the given path
+function Asset (opt) {
     var self = this;
 
     self.options = opt || {};
@@ -22,43 +25,36 @@ function Fingerprint (opt) {
     // list of mime types we support
     self.supported = {};
 
-    // route name to cached content
-    self._cached = {};
-
     // route names to full filenames
     self.routes = {};
+
+    // post processing per extension
+    self._post = {};
 }
 
-Fingerprint.prototype.register = function(ext, loader) {
+Asset.prototype.register = function(ext, loader) {
     var self = this;
     var mime_type = mime.lookup(ext);
     self.supported[mime_type] = loader;
 }
 
-/// store some content for the given 'route'
-Fingerprint.prototype.store = function(route, content) {
-    var self = this;
-    self._cached[route] = {
-        mime: mime.lookup(route),
-        content: content,
-    };
-}
-
-Fingerprint.prototype.hash = function(route) {
+Asset.prototype.hash = function(route) {
     var self = this;
 
-    var cached = self._cached[route];
-    if (!cached) {
-        cached = self.load(route);
-    }
+    var cached = self.routes[route];
 
     if (cached.hash) {
         return cached.hash;
     }
 
-    // at this point we could cache the hash
-    var hash = self.hash_fn(cached.content);
+    var content = cached.content;
+    if (!content) {
+        content = self.load(route).content;
+    }
 
+    var hash = self.hash_fn(content);
+
+    // to cache or not to cache
     if (self.options.cache) {
         cached.hash = hash;
     }
@@ -66,52 +62,91 @@ Fingerprint.prototype.hash = function(route) {
     return hash;
 }
 
-Fingerprint.prototype.exists = function(route) {
+Asset.prototype.exists = function(route) {
     var self = this;
-    return self.routes[route] !== undefined || self._cached[route] !== undefined;
+    return self.routes[route] !== undefined;
 }
 
-Fingerprint.prototype.load = function(route) {
+Asset.prototype.load = function(route) {
     var self = this;
 
-    var cached = self._cached[route];
-    if (cached) {
-        return cached;
-    }
-
-    var filename = self.routes[route];
-    if (!filename) {
+    var saved_route = self.routes[route];
+    if (!saved_route) {
         throw new Error('no such route: ' + route);
     }
 
-    var mime_type = mime.lookup(filename);
+    var content = saved_route.content;
+    if (!content) {
+        content = saved_route.load();
 
-    // do we have a loader function registered
-    var lookup_fn = self.supported[mime_type];
-    if (!lookup_fn) {
-        lookup_fn = loaders.file('binary');
+        // run post processing
+        var post = self._post[path.extname];
+        if (post) {
+            post.forEach(function(fn) {
+                content = fn(content);
+            });
+        }
     }
 
     var result = {
-        mime: mime_type,
-        content: lookup_fn(filename),
+        mime: saved_route.mime,
+        content: content,
     }
 
     if (self.options.cache) {
-        self._cached[route] = result;
+        saved_route.content = result.content;
     }
 
     return result;
 }
 
-Fingerprint.prototype.route = function(route, filename) {
+Asset.prototype.route = function(route, arg) {
     var self = this;
-    self.routes[route] = filename;
+    var loader;
+
+    // don't try to require the same route again
+    if (self.routes[route]) {
+        return;
+    }
+
+    var mime_type = mime.lookup(route);
+
+    if (typeof arg === 'function') {
+        loader = arg;
+    } else {
+        var filename = arg;
+
+        // do we have a loader function registered
+        var lookup_fn = self.supported[mime_type];
+        if (!lookup_fn) {
+            lookup_fn = loaders.file('binary');
+        }
+
+        loader = function() {
+            return lookup_fn(filename);
+        }
+    }
+
+    self.routes[route] = {
+        mime: mime_type,
+        load: loader
+    }
+}
+
+Asset.prototype.post = function(ext, fn) {
+    var self = this;
+
+    var post = self._post[ext];
+    if (!post) {
+        post = self._post[ext] = [];
+    }
+
+    post.push(fn);
 }
 
 // request will be of the form /js/require.js, etc
 // the pubdir path is not a part of this and we need to exclude it...
-Fingerprint.prototype.middleware = function(opt) {
+Asset.prototype.middleware = function(opt) {
     var self = this;
     var max_age = opt.max_age || 0;
 
@@ -139,7 +174,8 @@ Fingerprint.prototype.middleware = function(opt) {
     };
 }
 
-Fingerprint.hash = hash;
-Fingerprint.loaders = loaders;
+Asset.hash = hash;
+Asset.loaders = loaders;
+Asset.manglers = manglers;
 
-module.exports = Fingerprint;
+module.exports = Asset;
