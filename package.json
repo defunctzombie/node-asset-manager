@@ -1,7 +1,7 @@
 {
   "author": "Roman Shtylman <shtylman@gmail.com>",
   "name": "asset-manager",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "repository": {
     "type": "git",
     "url": "github.com/shtylman/node-asset-manager"
