@@ -5,5 +5,5 @@ Instead of loading many assets (css or js) from the webpage, you can just retrie
 Some basic features:
 
 * custom loading functions
-* express static middleware
+* connect middleware to server assets
 * hashing

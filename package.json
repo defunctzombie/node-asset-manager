@@ -6,7 +6,10 @@
     "type": "git",
     "url": "github.com/shtylman/node-asset-manager"
   },
-  "dependencies": {},
+  "main": "index.js",
+  "dependencies": {
+    "mime": "1.2.5"
+  },
   "devDependencies": {},
-  "optionalDependencies": {},
+  "optionalDependencies": {}
 }
