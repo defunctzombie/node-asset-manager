@@ -80,7 +80,7 @@ Asset.prototype.load = function(route) {
         content = saved_route.load();
 
         // run post processing
-        var post = self._post[path.extname];
+        var post = self._post[path.extname(route)];
         if (post) {
             post.forEach(function(fn) {
                 content = fn(content);
