@@ -149,13 +149,29 @@ Asset.prototype.post = function(ext, fn) {
 Asset.prototype.middleware = function(opt) {
     var self = this;
     var max_age = opt.max_age || 0;
+    var srcdir = opt.srcdir;
 
     return function(req, res, next) {
 
         var route = req.url;
 
         if (!self.exists(route)) {
-            return next();
+            // do we support this type of file?
+            var mime_type = mime.lookup(route);
+            var lookup_fn = self.supported[mime_type];
+            if (!lookup_fn) {
+                return next();
+            }
+
+            // if no source dir or doesn't exist, can't load
+            if (!srcdir || !path.existsSync(path.join(srcdir, route))) {
+                return next();
+            }
+
+            var filename = path.join(srcdir, route);
+
+            // will allow route to be loaded
+            self.route(route, filename);
         }
 
         var details = self.load(route);
