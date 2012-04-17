@@ -182,10 +182,12 @@ Asset.prototype.middleware = function(opt) {
             details.hash = self.hash(route);
         }
 
+        var charset = mime.charsets.lookup(details.mime);
+
         res.header('ETag', details.hash);
         res.header('Date', new Date().toUTCString());
         res.header('Cache-Control', 'public, max-age=' + (max_age / 1000));
-        res.header('Content-Type', details.mime + '; charset=utf-8');
+        res.header('Content-Type', details.mime + (charset ? '; charset=' + charset : ''));
         res.header('Vary', 'Accept-Encoding');
 
         res.send(details.content);
