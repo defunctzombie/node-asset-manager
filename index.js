@@ -153,7 +153,9 @@ Asset.prototype.middleware = function(opt) {
 
     return function(req, res, next) {
 
-        var route = req.url;
+        // remove any query string parameters
+        // these will break checking for the file on disk
+        var route = req.url.replace(/[?].*/, '');
 
         if (!self.exists(route)) {
             // do we support this type of file?
