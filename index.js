@@ -93,7 +93,7 @@ Asset.prototype.load = function(route) {
         content: content,
     }
 
-    if (self.options.cache) {
+    if (self.options.cache && saved_route.cache_content) {
         saved_route.content = result.content;
     }
 
@@ -103,6 +103,10 @@ Asset.prototype.load = function(route) {
 Asset.prototype.route = function(route, arg) {
     var self = this;
     var loader;
+
+    // for mime types we don't have registered
+    // don't cache them, only load for hashing
+    var cache = true;
 
     // don't try to require the same route again
     if (self.routes[route]) {
@@ -120,6 +124,7 @@ Asset.prototype.route = function(route, arg) {
         var lookup_fn = self.supported[mime_type];
         if (!lookup_fn) {
             lookup_fn = loaders.file('binary');
+            cache = false;
         }
 
         loader = function() {
@@ -129,7 +134,8 @@ Asset.prototype.route = function(route, arg) {
 
     self.routes[route] = {
         mime: mime_type,
-        load: loader
+        load: loader,
+        cache_content: cache
     }
 }
 
@@ -157,14 +163,14 @@ Asset.prototype.middleware = function(opt) {
         // these will break checking for the file on disk
         var route = req.url.replace(/[?].*/, '');
 
-        if (!self.exists(route)) {
-            // do we support this type of file?
-            var mime_type = mime.lookup(route);
-            var lookup_fn = self.supported[mime_type];
-            if (!lookup_fn) {
-                return next();
-            }
+        // do we support serving this type of file?
+        var mime_type = mime.lookup(route);
+        var lookup_fn = self.supported[mime_type];
+        if (!lookup_fn) {
+            return next();
+        }
 
+        if (!self.exists(route)) {
             // if no source dir or doesn't exist, can't load
             if (!srcdir || !path.existsSync(path.join(srcdir, route))) {
                 return next();
