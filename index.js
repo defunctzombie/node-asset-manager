@@ -172,7 +172,7 @@ Asset.prototype.middleware = function(opt) {
 
         if (!self.exists(route)) {
             // if no source dir or doesn't exist, can't load
-            if (!srcdir || !path.existsSync(path.join(srcdir, route))) {
+            if (!srcdir || !fs.existsSync(path.join(srcdir, route))) {
                 return next();
             }
 
